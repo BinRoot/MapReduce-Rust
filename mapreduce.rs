@@ -6,18 +6,21 @@ fn main() {
 
     let docs: ~[~str] = ~[~"hello world", ~"hello guys", ~"world"];
 
-    fn mapper(doc: ~str) -> ~str {
+    fn mapper(doc: ~str) -> ~[(~str, ~str)]{
         let words: ~[~str] = doc.split_iter(' ')
             .filter(|&x| x != "")
             .map(|x| {
                 x.to_owned()
             }).collect();
 
+        let mut ret: ~[(~str, ~str)] = ~[];
         for w in words.iter() {
-            println(w.to_str() + ", 1");
+//            println(w.to_str() + ", 1");
+            let tup: (~str, ~str) = (w.to_str(), ~"1");
+            ret.push(tup);
         }
 
-        ~"in mapper"
+        ret
     }
 
     fn reducer(key: ~str, vals: ~[~str]) {
@@ -58,14 +61,15 @@ fn fib(n: int) -> int {
 
 
 trait MapReduce {
-    fn mapreduce( &self, extern fn(~str) -> ~str, extern fn(~str, ~[~str]) );
+    fn mapreduce( &self, extern fn(~str) -> ~[(~str, ~str)], extern fn(~str, ~[~str]) );
 }
 
 impl MapReduce for ~[~str] {
-    fn mapreduce( &self, mapper: extern fn(~str) -> ~str, reducer: extern fn(~str, ~[~str]) ) {
+    fn mapreduce( &self, mapper: extern fn(~str) -> ~[(~str, ~str)], reducer: extern fn(~str, ~[~str]) ) {
         println("map reducing!!");
         for doc in self.iter() {
-            mapper(doc.to_owned());
+            let ivals: ~[(~str, ~str)] = mapper(doc.to_owned());
+            println(fmt!("%?", ivals));
         }
     }
 }
