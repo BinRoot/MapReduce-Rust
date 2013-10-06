@@ -1,4 +1,5 @@
 use std::comm::SharedChan;
+use std::hashmap::HashMap;
 
 fn main() {
     let (port, chan): (Port<int>, Chan<int>) = stream();
@@ -6,7 +7,7 @@ fn main() {
 
     let docs: ~[~str] = ~[~"hello world", ~"hello guys", ~"world"];
 
-    fn mapper(doc: ~str) -> ~[(~str, ~str)]{
+    fn mapper(doc: ~str) -> ~[(~str, ~str)] {
         let words: ~[~str] = doc.split_iter(' ')
             .filter(|&x| x != "")
             .map(|x| {
@@ -19,6 +20,8 @@ fn main() {
             let tup: (~str, ~str) = (w.to_str(), ~"1");
             ret.push(tup);
         }
+
+        
 
         ret
     }
@@ -67,9 +70,31 @@ trait MapReduce {
 impl MapReduce for ~[~str] {
     fn mapreduce( &self, mapper: extern fn(~str) -> ~[(~str, ~str)], reducer: extern fn(~str, ~[~str]) ) {
         println("map reducing!!");
+        let (port, chan): (Port<~[(~str, ~str)]>, Chan<~[(~str, ~str)]>) = stream();
+        let chan = SharedChan::new(chan);
+        let mut chans: int = 0;
         for doc in self.iter() {
-            let ivals: ~[(~str, ~str)] = mapper(doc.to_owned());
-            println(fmt!("%?", ivals));
+            let child_chan = chan.clone();
+            let doc_owned = doc.to_owned();
+            chans += 1;
+            do spawn { 
+                let ivals: ~[(~str, ~str)] = mapper(doc_owned.clone());
+                child_chan.send(ivals);
+            }
+        }
+        
+        let mut key_vals_map: HashMap<~str, ~[~str]> = HashMap::new();
+        for _ in range(0, chans) {
+            let ivals: ~[(~str, ~str)] = port.recv();
+//            println(fmt!("%?", ivals));
+
+//            let mut argv: ~[~str] = ivals.map(|x| x.to_owned()).collect();
+
+
+            for ival in ivals.iter() {
+                println(fmt!("%?", ival));
+                
+            }
         }
     }
 }
