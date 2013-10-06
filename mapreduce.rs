@@ -3,9 +3,9 @@ use std::hashmap::HashMap;
 
 fn main() {
     // Reading 10 books from Project Gutenberg
-    let mut docs: ~[~str] = ~[~"Beowulf.txt", ~"Adventures_in_Wonderland.txt", ~"Pride_and_Prejudice.txt",
-                                ~"Sherlock_Holmes.txt", ~"The_Prince.txt", ~"Dorian_Gray.txt", ~"Dracula.txt",
-                                ~"Dubliners.txt", ~"Great_Expectations.txt", ~"Siddhartha.txt"];
+    let mut docs: ~[~str] = ~[~"books/Beowulf.txt", ~"books/Adventures_in_Wonderland.txt", ~"books/Pride_and_Prejudice.txt",
+                                ~"books/herlock_Holmes.txt", ~"books/The_Prince.txt", ~"books/Dorian_Gray.txt", ~"books/Dracula.txt",
+                                ~"books/Dubliners.txt", ~"books/Great_Expectations.txt", ~"books/Siddhartha.txt"];
 
     docs = docs.map(|file| {
         readFile(file.to_owned())
