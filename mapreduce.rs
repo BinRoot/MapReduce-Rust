@@ -1,10 +1,8 @@
 use std::comm::SharedChan;
 use std::hashmap::HashMap;
 
-fn main() {
-    let (port, chan): (Port<int>, Chan<int>) = stream();
-    let chan = SharedChan::new(chan);
 
+fn main() {
     let docs: ~[~str] = ~[~"hello world", ~"hello guys", ~"world"];
 
     fn mapper(doc: ~str) -> ~[(~str, ~str)] {
@@ -16,60 +14,35 @@ fn main() {
 
         let mut ret: ~[(~str, ~str)] = ~[];
         for w in words.iter() {
-//            println(w.to_str() + ", 1");
             let tup: (~str, ~str) = (w.to_str(), ~"1");
             ret.push(tup);
         }
 
-        
-
         ret
     }
 
-    fn reducer(key: ~str, vals: ~[~str]) {
-
+    fn reducer(key: ~str, vals: ~[~str]) -> ~[(~str, ~str)] {
+        let mut result: int = 0;
+        for val in vals.iter() {
+            match from_str::<int>(val.to_owned()) {
+                None => (),
+                Some(a) => {
+                    result += a;
+                }
+            }
+        }
+        ~[(key, result.to_str())]
     }
 
     docs.mapreduce(mapper, reducer);
-
-    
-
-    let vals = [40, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10];
-    for i in range(0, vals.len()) {
-        let child_chan = chan.clone();
-        do spawn {
-            let res = fib(vals[i]);
-            print("("+i.to_str()+")");
-            child_chan.send(res);
-        }
-    }
-
-    let mut result = 0;
-    for i in range(0, vals.len()) {
-        result += port.recv();
-    }
-    
-    println("\nresult: "+result.to_str());
 }
-
-fn fib(n: int) -> int {
-    match n {
-        1 => 1,
-        2 => 1,
-        _ => fib(n-1) + fib(n-2)
-    }
-}
-
-//fn mapreduce(mapper : extern fn(~str), reducer : extern fn(~str, ~[~str]) ) {
-
 
 trait MapReduce {
-    fn mapreduce( &self, extern fn(~str) -> ~[(~str, ~str)], extern fn(~str, ~[~str]) );
+    fn mapreduce( &self, extern fn(~str) -> ~[(~str, ~str)], extern fn(~str, ~[~str]) -> ~[(~str, ~str)]);
 }
 
 impl MapReduce for ~[~str] {
-    fn mapreduce( &self, mapper: extern fn(~str) -> ~[(~str, ~str)], reducer: extern fn(~str, ~[~str]) ) {
-        println("map reducing!!");
+    fn mapreduce( &self, mapper: extern fn(~str) -> ~[(~str, ~str)], reducer: extern fn(~str, ~[~str]) -> ~[(~str, ~str)] ) {
         let (port, chan): (Port<~[(~str, ~str)]>, Chan<~[(~str, ~str)]>) = stream();
         let chan = SharedChan::new(chan);
         let mut chans: int = 0;
@@ -90,11 +63,41 @@ impl MapReduce for ~[~str] {
 
 //            let mut argv: ~[~str] = ivals.map(|x| x.to_owned()).collect();
 
-
             for ival in ivals.iter() {
-                println(fmt!("%?", ival));
-                
+//                println(fmt!("%?", ival));
+
+                let key = ival.n0();
+                let val = ival.n1();
+
+ //               println(fmt!("%?,  %?", key, val));
+
+                if key_vals_map.contains_key_equiv(&key) {
+                    let list = key_vals_map.get_mut(&key);
+                    list.push(val);
+                } else {
+                    key_vals_map.find_or_insert(key, ~[val]);
+                }
             }
+        }
+
+
+        chans = 0;
+        key_vals_map.each_key(|key| {
+                let values = key_vals_map.get(key);
+                let child_chan = chan.clone();
+                let key_owned = key.to_owned();
+                let values_owned = values.to_owned();
+                chans += 1;
+                do spawn {
+                    let rvals: ~[(~str, ~str)] = reducer(key_owned.clone(), values_owned.clone());
+                    child_chan.send(rvals);
+                }
+                true
+            });
+        
+        for _ in range(0, chans) {
+            let rvals: ~[(~str, ~str)] = port.recv();
+            println(fmt!("%?", rvals));            
         }
     }
 }
