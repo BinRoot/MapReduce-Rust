@@ -1,20 +1,8 @@
 use std::comm::SharedChan;
 use std::hashmap::HashMap;
 
-fn readFile(filename: ~str) -> ~str {
-    let contents = std::io::read_whole_file_str(&std::path::PosixPath{
-        is_absolute: false,
-        components: ~[filename]
-    });
-
-    let ret = match contents {
-        Ok(T) => T,
-        _ => ~""
-    };
-    ret
-}
-
 fn main() {
+    // Reading 10 books from Project Gutenberg
     let mut docs: ~[~str] = ~[~"Beowulf.txt", ~"Adventures_in_Wonderland.txt", ~"Pride_and_Prejudice.txt",
                                 ~"Sherlock_Holmes.txt", ~"The_Prince.txt", ~"Dorian_Gray.txt", ~"Dracula.txt",
                                 ~"Dubliners.txt", ~"Great_Expectations.txt", ~"Siddhartha.txt"];
@@ -23,6 +11,7 @@ fn main() {
         readFile(file.to_owned())
     });
 
+    // Defining instance of mapper to get word counts
     fn mapper(doc: ~str) -> ~[(~str, ~str)] {
         let words: ~[~str] = doc.split_iter(' ')
             .filter(|&x| x != "")
@@ -39,6 +28,7 @@ fn main() {
         ret
     }
 
+    // Defining instance of reducer to get word counts
     fn reducer(key: ~str, vals: ~[~str]) -> ~[(~str, ~str)] {
         let mut result: int = 0;
         for val in vals.iter() {
@@ -52,15 +42,19 @@ fn main() {
         ~[(key, result.to_str())]
     }
 
+    // Launching job
     docs.mapreduce(mapper, reducer);
 }
 
+// Exposing trait
 trait MapReduce {
     fn mapreduce( &self, extern fn(~str) -> ~[(~str, ~str)], extern fn(~str, ~[~str]) -> ~[(~str, ~str)]);
 }
 
+// Implementation of mapreduce trait
 impl MapReduce for ~[~str] {
     fn mapreduce( &self, mapper: extern fn(~str) -> ~[(~str, ~str)], reducer: extern fn(~str, ~[~str]) -> ~[(~str, ~str)] ) {
+        // First we map in parallel
         let (port, chan): (Port<~[(~str, ~str)]>, Chan<~[(~str, ~str)]>) = stream();
         let chan = SharedChan::new(chan);
         let mut chans: int = 0;
@@ -74,6 +68,7 @@ impl MapReduce for ~[~str] {
             }
         }
 
+        // Aggregate intermediate keys
         let mut key_vals_map: HashMap<~str, ~[~str]> = HashMap::new();
         for _ in range(0, chans) {
             let ivals: ~[(~str, ~str)] = port.recv();
@@ -92,6 +87,7 @@ impl MapReduce for ~[~str] {
             }
         }
 
+        // Finally, reduce in parallel
         chans = 0;
         key_vals_map.each_key(|key| {
                 let values = key_vals_map.get(key);
@@ -106,9 +102,24 @@ impl MapReduce for ~[~str] {
                 true
             });
 
+        // Print reduced values
         for _ in range(0, chans) {
             let rvals: ~[(~str, ~str)] = port.recv();
             println(fmt!("%?", rvals));
         }
     }
+}
+
+// Auxiliary function to read entire file
+fn readFile(filename: ~str) -> ~str {
+    let contents = std::io::read_whole_file_str(&std::path::PosixPath{
+        is_absolute: false,
+        components: ~[filename]
+    });
+
+    let ret = match contents {
+        Ok(T) => T,
+        _ => ~""
+    };
+    ret
 }
