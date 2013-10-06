@@ -1,9 +1,27 @@
 use std::comm::SharedChan;
 use std::hashmap::HashMap;
 
+fn readFile(filename: ~str) -> ~str {
+    let contents = std::io::read_whole_file_str(&std::path::PosixPath{
+        is_absolute: false,
+        components: ~[filename]
+    });
+
+    let ret = match contents {
+        Ok(T) => T,
+        _ => ~""
+    };
+    ret
+}
 
 fn main() {
-    let docs: ~[~str] = ~[~"hello world", ~"hello guys", ~"world"];
+    let mut docs: ~[~str] = ~[~"Beowulf.txt", ~"Adventures_in_Wonderland.txt", ~"Pride_and_Prejudice.txt",
+                                ~"Sherlock_Holmes.txt", ~"The_Prince.txt", ~"Dorian_Gray.txt", ~"Dracula.txt",
+                                ~"Dubliners.txt", ~"Great_Expectations.txt", ~"Siddhartha.txt"];
+
+    docs = docs.map(|file| {
+        readFile(file.to_owned())
+    });
 
     fn mapper(doc: ~str) -> ~[(~str, ~str)] {
         let words: ~[~str] = doc.split_iter(' ')
@@ -50,26 +68,20 @@ impl MapReduce for ~[~str] {
             let child_chan = chan.clone();
             let doc_owned = doc.to_owned();
             chans += 1;
-            do spawn { 
+            do spawn {
                 let ivals: ~[(~str, ~str)] = mapper(doc_owned.clone());
                 child_chan.send(ivals);
             }
         }
-        
+
         let mut key_vals_map: HashMap<~str, ~[~str]> = HashMap::new();
         for _ in range(0, chans) {
             let ivals: ~[(~str, ~str)] = port.recv();
-//            println(fmt!("%?", ivals));
-
-//            let mut argv: ~[~str] = ivals.map(|x| x.to_owned()).collect();
 
             for ival in ivals.iter() {
-//                println(fmt!("%?", ival));
 
                 let key = ival.n0();
                 let val = ival.n1();
-
- //               println(fmt!("%?,  %?", key, val));
 
                 if key_vals_map.contains_key_equiv(&key) {
                     let list = key_vals_map.get_mut(&key);
@@ -79,7 +91,6 @@ impl MapReduce for ~[~str] {
                 }
             }
         }
-
 
         chans = 0;
         key_vals_map.each_key(|key| {
@@ -94,10 +105,10 @@ impl MapReduce for ~[~str] {
                 }
                 true
             });
-        
+
         for _ in range(0, chans) {
             let rvals: ~[(~str, ~str)] = port.recv();
-            println(fmt!("%?", rvals));            
+            println(fmt!("%?", rvals));
         }
     }
 }
