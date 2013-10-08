@@ -75,8 +75,14 @@ impl MapReduce for ~[~str] {
 
             for ival in ivals.iter() {
 
-                let key = ival.n0();
-                let val = ival.n1();
+		let mut key: ~str;
+		let mut val: ~str;
+	    	match (*ival).clone() {
+		      (a, b) => { key = a; val = b;},
+		}		
+
+//                let key = ival.n0();
+//                let val = ival.n1();
 
                 if key_vals_map.contains_key_equiv(&key) {
                     let list = key_vals_map.get_mut(&key);
