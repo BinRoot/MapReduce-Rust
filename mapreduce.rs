@@ -1,5 +1,6 @@
 use std::comm::SharedChan;
 use std::hashmap::HashMap;
+use std::hash::Hash;
 
 fn main() {
     // Reading 10 books from Project Gutenberg
@@ -12,16 +13,16 @@ fn main() {
     });
 
     // Defining instance of mapper to get word counts
-    fn mapper(doc: ~str) -> ~[(~str, ~str)] {
+    fn mapper(doc: ~str) -> ~[(~str, uint)] {
         let words: ~[~str] = doc.split_iter(' ')
             .filter(|&x| x != "")
             .map(|x| {
                 x.to_owned()
             }).collect();
 
-        let mut ret: ~[(~str, ~str)] = ~[];
+        let mut ret: ~[(~str, uint)] = ~[];
         for w in words.iter() {
-            let tup: (~str, ~str) = (w.to_str(), ~"1");
+            let tup: (~str, uint) = (w.to_str(), 1);
             ret.push(tup);
         }
 
@@ -29,49 +30,45 @@ fn main() {
     }
 
     // Defining instance of reducer to get word counts
-    fn reducer(key: ~str, vals: ~[~str]) -> ~[(~str, ~str)] {
-        let mut result: int = 0;
+    fn reducer(key: ~str, vals: ~[uint]) -> ~[(~str, uint)] {
+        let mut result: uint = 0;
         for val in vals.iter() {
-            match from_str::<int>(val.to_owned()) {
-                None => (),
-                Some(a) => {
-                    result += a;
-                }
-            }
+            result += *val;
         }
-        ~[(key, result.to_str())]
+        ~[(key, result)]
     }
 
     // Launching job
-    docs.mapreduce(mapper, reducer);
+    docs.mapreduce::<~str,uint>(mapper, reducer);
+
 }
 
 // Exposing trait
 trait MapReduce {
-    fn mapreduce( &self, extern fn(~str) -> ~[(~str, ~str)], extern fn(~str, ~[~str]) -> ~[(~str, ~str)]);
+    fn mapreduce<K2: Clone + Send + Hash + Equiv<K2> + Eq, V2: Clone + Send>( &self, extern fn(~str) -> ~[(K2, V2)], extern fn(K2, ~[V2]) -> ~[(K2, V2)] );
 }
 
 // Implementation of mapreduce trait
 impl MapReduce for ~[~str] {
-    fn mapreduce( &self, mapper: extern fn(~str) -> ~[(~str, ~str)], reducer: extern fn(~str, ~[~str]) -> ~[(~str, ~str)] ) {
+    fn mapreduce<K2: Clone + Send + Hash + Equiv<K2> + Eq, V2: Clone + Send>( &self, mapper: extern fn(~str) -> ~[(K2, V2)], reducer: extern fn(K2, ~[V2]) -> ~[(K2, V2)] ) {
         // First we map in parallel
-        let (port, chan): (Port<~[(~str, ~str)]>, Chan<~[(~str, ~str)]>) = stream();
+        let (port, chan): (Port<~[(K2, V2)]>, Chan<~[(K2, V2)]>) = stream();
         let chan = SharedChan::new(chan);
         let mut chans: int = 0;
         for doc in self.iter() {
             let child_chan = chan.clone();
-            let doc_owned = doc.to_owned();
+            let doc_owned = doc.clone();
             chans += 1;
             do spawn {
-                let ivals: ~[(~str, ~str)] = mapper(doc_owned.clone());
+                let ivals: ~[(K2, V2)] = mapper(doc_owned.clone());
                 child_chan.send(ivals);
             }
         }
 
         // Aggregate intermediate keys
-        let mut key_vals_map: HashMap<~str, ~[~str]> = HashMap::new();
+        let mut key_vals_map: HashMap<K2, ~[V2]> = HashMap::new();
         for _ in range(0, chans) {
-            let ivals: ~[(~str, ~str)] = port.recv();
+            let ivals: ~[(K2, V2)] = port.recv();
 
             for ival in ivals.iter() {
 
@@ -92,11 +89,11 @@ impl MapReduce for ~[~str] {
         key_vals_map.each_key(|key| {
                 let values = key_vals_map.get(key);
                 let child_chan = chan.clone();
-                let key_owned = key.to_owned();
-                let values_owned = values.to_owned();
+                let key_owned = key.clone();
+                let values_owned = values.clone();
                 chans += 1;
                 do spawn {
-                    let rvals: ~[(~str, ~str)] = reducer(key_owned.clone(), values_owned.clone());
+                    let rvals: ~[(K2, V2)] = reducer(key_owned.clone(), values_owned.clone());
                     child_chan.send(rvals);
                 }
                 true
@@ -104,7 +101,7 @@ impl MapReduce for ~[~str] {
 
         // Print reduced values
         for _ in range(0, chans) {
-            let rvals: ~[(~str, ~str)] = port.recv();
+            let rvals: ~[(K2, V2)] = port.recv();
             println(fmt!("%?", rvals));
         }
     }
