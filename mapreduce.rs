@@ -5,7 +5,7 @@ use std::hash::Hash;
 fn main() {
     // Reading 10 books from Project Gutenberg
     let mut docs: ~[~str] = ~[~"books/Beowulf.txt", ~"books/Adventures_in_Wonderland.txt", ~"books/Pride_and_Prejudice.txt",
-                                ~"books/herlock_Holmes.txt", ~"books/The_Prince.txt", ~"books/Dorian_Gray.txt", ~"books/Dracula.txt",
+                                ~"books/Sherlock_Holmes.txt", ~"books/The_Prince.txt", ~"books/Dorian_Gray.txt", ~"books/Dracula.txt",
                                 ~"books/Dubliners.txt", ~"books/Great_Expectations.txt", ~"books/Siddhartha.txt"];
 
     docs = docs.map(|file| {
