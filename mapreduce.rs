@@ -14,7 +14,8 @@ fn main() {
 
     // Defining instance of mapper to get word counts
     fn mapper(doc: ~str) -> ~[(~str, uint)] {
-        let words: ~[~str] = doc.split_iter(' ')
+	let words: ~[~str] = doc.split_iter(|c: char| { c.is_whitespace() ||
+            !(c.is_alphanumeric() || ['\'', '-'].contains(&c)) })
             .filter(|&x| x != "")
             .map(|x| {
                 x.to_owned()
