@@ -5,7 +5,7 @@ use std::hash::Hash;
 fn main() {
     // Reading 10 books from Project Gutenberg
     let mut docs: ~[~str] = ~[~"books/Beowulf.txt", ~"books/Adventures_in_Wonderland.txt", ~"books/Pride_and_Prejudice.txt",
-                                ~"books/herlock_Holmes.txt", ~"books/The_Prince.txt", ~"books/Dorian_Gray.txt", ~"books/Dracula.txt",
+                                ~"books/Sherlock_Holmes.txt", ~"books/The_Prince.txt", ~"books/Dorian_Gray.txt", ~"books/Dracula.txt",
                                 ~"books/Dubliners.txt", ~"books/Great_Expectations.txt", ~"books/Siddhartha.txt"];
 
     docs = docs.map(|file| {
@@ -14,7 +14,8 @@ fn main() {
 
     // Defining instance of mapper to get word counts
     fn mapper(doc: ~str) -> ~[(~str, uint)] {
-        let words: ~[~str] = doc.split_iter(' ')
+	let words: ~[~str] = doc.split_iter(|c: char| { c.is_whitespace() ||
+            !(c.is_alphanumeric() || ['\'', '-'].contains(&c)) })
             .filter(|&x| x != "")
             .map(|x| {
                 x.to_owned()
